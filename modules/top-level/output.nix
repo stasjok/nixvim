@@ -74,15 +74,51 @@ in
 
   config =
     let
+      # Plugin list extended with dependencies
+      allPlugins =
+        let
+          pluginWithItsDeps = p: [ p ] ++ builtins.concatMap pluginWithItsDeps p.dependencies or [ ];
+        in
+        lib.unique (builtins.concatMap pluginWithItsDeps config.extraPlugins);
+
+      # Remove help tags
+      allPluginsOverrided = map (
+        plugin:
+        plugin.overrideAttrs (prev: {
+          nativeBuildInputs = lib.remove pkgs.vimUtils.vimGenDocHook prev.nativeBuildInputs or [ ];
+          configurePhase = builtins.concatStringsSep "\n" (
+            builtins.filter (s: s != ":") [
+              prev.configurePhase or ":"
+              "rm -vf doc/tags"
+            ]
+          );
+        })
+      ) allPlugins;
+
+      # Merge all plugins to one pack
+      mergedPlugins = pkgs.vimUtils.toVimPlugin (
+        pkgs.buildEnv {
+          name = "plugin-pack";
+          paths = allPluginsOverrided;
+          pathsToLink = config.performance.combinePlugins.pathsToLink;
+          # Activate vimGenDocHook manually
+          postBuild = ''
+            find $out -type d -empty -delete
+            runHook preFixup
+          '';
+        }
+      );
+
+      # Combined plugins
+      combinedPlugins = [ mergedPlugins ];
+
+      plugins = if config.performance.combinePlugins.enable then combinedPlugins else config.extraPlugins;
       defaultPlugin = {
         plugin = null;
         config = "";
         optional = false;
       };
-
-      normalizedPlugins = map (
-        x: defaultPlugin // (if x ? plugin then x else { plugin = x; })
-      ) config.extraPlugins;
+      normalizedPlugins = map (x: defaultPlugin // (if x ? plugin then x else { plugin = x; })) plugins;
 
       neovimConfig = pkgs.neovimUtils.makeNeovimConfig (
         {

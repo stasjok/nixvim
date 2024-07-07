@@ -8,5 +8,6 @@
     ../.
     ./files
     ./output.nix
+    ./performance.nix
   ];
 }
