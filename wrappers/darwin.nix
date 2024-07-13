@@ -1,4 +1,4 @@
-{ self, getHelpers }:
+self:
 {
   pkgs,
   config,
@@ -15,8 +15,6 @@ let
     mkIf
     types
     ;
-  helpers = getHelpers pkgs false;
-  shared = import ./_shared.nix helpers args;
   cfg = config.programs.nixvim;
 in
 {
@@ -28,7 +26,7 @@ in
         specialArgs = {
           darwinConfig = config;
           defaultPkgs = pkgs;
-          inherit helpers;
+          inherit (config.nixvim) helpers;
         };
         modules = [
           ./modules/darwin.nix
@@ -36,8 +34,9 @@ in
         ];
       };
     };
-    nixvim.helpers = shared.helpers;
   };
+
+  imports = [ (import ./_shared.nix { }) ];
 
   config = mkIf cfg.enable (mkMerge [
     {

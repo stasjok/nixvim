@@ -115,7 +115,7 @@
               return { 'rust-analyzer', '--log-file', RustaceanConfig.server.logfile }
             end
           '';
-          settings = ''
+          default_settings = ''
             function(project_root, default_settings)
               return require('rustaceanvim.config.server').load_rust_analyzer_settings(project_root, { default_settings = default_settings })
             end
@@ -143,7 +143,7 @@
     plugins.rustaceanvim = {
       enable = true;
 
-      settings.server.settings = {
+      settings.server.default_settings.rust-analyzer = {
         linkedProjects = [ "foo/bar/hello" ];
         numThreads = 42;
         joinLines.joinElseIf = true;

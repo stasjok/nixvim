@@ -68,6 +68,7 @@
     ./languages/ledger.nix
     ./languages/lint.nix
     ./languages/ltex-extra.nix
+    ./languages/markdown/glow.nix
     ./languages/markdown/markdown-preview.nix
     ./languages/markdown/preview.nix
     ./languages/nix.nix
@@ -147,6 +148,7 @@
     ./utils/bacon.nix
     ./utils/baleia.nix
     ./utils/better-escape.nix
+    ./utils/bufdelete.nix
     ./utils/ccc.nix
     ./utils/clipboard-image.nix
     ./utils/cloak.nix

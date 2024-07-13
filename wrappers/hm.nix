@@ -1,4 +1,4 @@
-{ self, getHelpers }:
+self:
 {
   pkgs,
   config,
@@ -14,12 +14,7 @@ let
     mkIf
     types
     ;
-  helpers = getHelpers pkgs false;
-  shared = import ./_shared.nix helpers args;
   cfg = config.programs.nixvim;
-  files = shared.configFiles // {
-    "nvim/init.lua".source = cfg.initPath;
-  };
 in
 {
   options = {
@@ -30,7 +25,7 @@ in
         specialArgs = {
           hmConfig = config;
           defaultPkgs = pkgs;
-          inherit helpers;
+          inherit (config.nixvim) helpers;
         };
         modules = [
           ./modules/hm.nix
@@ -38,8 +33,16 @@ in
         ];
       };
     };
-    nixvim.helpers = shared.helpers;
   };
+
+  imports = [
+    (import ./_shared.nix {
+      filesOpt = [
+        "xdg"
+        "configFile"
+      ];
+    })
+  ];
 
   config = mkIf cfg.enable (mkMerge [
     {
@@ -48,7 +51,6 @@ in
         cfg.printInitPackage
       ] ++ (lib.optional cfg.enableMan self.packages.${pkgs.stdenv.hostPlatform.system}.man-docs);
     }
-    (mkIf (!cfg.wrapRc) { xdg.configFile = files; })
     {
       inherit (cfg) warnings assertions;
       home.sessionVariables = mkIf cfg.defaultEditor { EDITOR = "nvim"; };

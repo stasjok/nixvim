@@ -1,4 +1,4 @@
-{ self, getHelpers }:
+self:
 {
   pkgs,
   config,
@@ -15,12 +15,7 @@ let
     mkIf
     types
     ;
-  helpers = getHelpers pkgs false;
-  shared = import ./_shared.nix helpers args;
   cfg = config.programs.nixvim;
-  files = shared.configFiles // {
-    "nvim/sysinit.lua".source = cfg.initPath;
-  };
 in
 {
   options = {
@@ -31,7 +26,7 @@ in
         specialArgs = {
           nixosConfig = config;
           defaultPkgs = pkgs;
-          inherit helpers;
+          inherit (config.nixvim) helpers;
         };
         modules = [
           ./modules/nixos.nix
@@ -39,8 +34,17 @@ in
         ];
       };
     };
-    nixvim.helpers = shared.helpers;
   };
+
+  imports = [
+    (import ./_shared.nix {
+      filesOpt = [
+        "environment"
+        "etc"
+      ];
+      initName = "sysinit.lua";
+    })
+  ];
 
   config = mkIf cfg.enable (mkMerge [
     {
@@ -49,14 +53,13 @@ in
         cfg.printInitPackage
       ] ++ (lib.optional cfg.enableMan self.packages.${pkgs.stdenv.hostPlatform.system}.man-docs);
     }
-    (mkIf (!cfg.wrapRc) {
-      environment.etc = files;
-      environment.variables."VIM" = "/etc/nvim";
-    })
     {
       inherit (cfg) warnings assertions;
       programs.neovim.defaultEditor = cfg.defaultEditor;
-      environment.variables.EDITOR = mkIf cfg.defaultEditor (lib.mkOverride 900 "nvim");
+      environment.variables = {
+        VIM = mkIf (!cfg.wrapRc) "/etc/nvim";
+        EDITOR = mkIf cfg.defaultEditor (lib.mkOverride 900 "nvim");
+      };
     }
   ]);
 }
