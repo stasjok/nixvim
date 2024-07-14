@@ -5,11 +5,21 @@ in
 {
   options.performance = {
     combinePlugins = {
-      enable = lib.mkEnableOption "combinePlugins";
+      enable = lib.mkEnableOption "combinePlugins" // {
+        description = ''
+          Whether to enable EXPERIMENTAL option to combine all plugins
+          into a single plugin pack. It can significantly reduce startup time,
+          but all your plugins must have unique filenames and doc tags.
+          Any collision will result in a build failure.
+          Only standard neovim runtime directories are linked to the combined plugin.
+          If some of your plugins contain important files outside of standard
+          directories, add these paths to `pathsToLink` option.
+        '';
+      };
       pathsToLink = lib.mkOption {
         type = with types; listOf str;
         default = [ ];
-        description = "List of paths to link to combined plugin pack.";
+        description = "List of paths (e.g. `/lua`) to link into a combined plugin pack.";
       };
     };
   };
