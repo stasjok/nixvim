@@ -106,6 +106,11 @@ in
         p: p // { plugin = builtins.removeAttrs p.plugin [ "dependencies" ]; }
       ) partitionedPlugins.right;
 
+      # Separated standalone and combined start plugins
+      partitionedStartPlugins = builtins.partition (p: p.plugin != config.filesPlugin) startPlugins;
+      toCombinePlugins = partitionedStartPlugins.right;
+      standaloneStartPlugins = partitionedStartPlugins.wrong;
+
       # Combine start plugins into a single pack
       pluginPack =
         let
@@ -121,12 +126,12 @@ in
                 ]
               );
             })
-          ) startPlugins;
+          ) toCombinePlugins;
 
           # Python3 dependencies
           python3Dependencies =
             let
-              deps = map (p: p.plugin.python3Dependencies or (_: [ ])) startPlugins;
+              deps = map (p: p.plugin.python3Dependencies or (_: [ ])) toCombinePlugins;
             in
             ps: builtins.concatMap (f: f ps) deps;
 
@@ -149,7 +154,7 @@ in
 
           # Combined plugin configs
           combinedConfig = builtins.concatStringsSep "\n" (
-            builtins.concatMap (x: lib.optional (x.config != null && x.config != "") x.config) startPlugins
+            builtins.concatMap (x: lib.optional (x.config != null && x.config != "") x.config) toCombinePlugins
           );
         in
         normalize {
@@ -158,7 +163,7 @@ in
         };
 
       # Combined plugins
-      combinedPlugins = [ pluginPack ] ++ optPlugins;
+      combinedPlugins = [ pluginPack ] ++ standaloneStartPlugins ++ optPlugins;
 
       # Plugins to use in finalPackage
       plugins = if config.performance.combinePlugins.enable then combinedPlugins else normalizedPlugins;
