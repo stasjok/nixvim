@@ -1,6 +1,11 @@
 { pkgs, ... }:
 let
-  pluginCount = pkg: type: builtins.length pkg.packpathDirs.myNeovimPackages.${type};
+  # Count plugins of given type excluding 'nvim-config'
+  pluginCount =
+    pkg: type:
+    builtins.length (
+      builtins.filter (p: pkgs.lib.getName p != "nvim-config") pkg.packpathDirs.myNeovimPackages.${type}
+    );
 in
 {
   # Test basic functionality
@@ -225,6 +230,56 @@ in
         assert(vim.g.treesitter_config == 1, "nvim-treesitter config isn't evaluated")
         assert(vim.g.lspconfig_config == 1, "nvim-lspconfig config isn't evaluated")
         assert(vim.g.telescope_config == 1, "telescope-nvim config isn't evaluated")
+      '';
+      assertions = [
+        {
+          assertion = pluginCount config.finalPackage "start" == 1;
+          message = "More than one start plugin is defined in packpathDirs";
+        }
+      ];
+    };
+
+  # Test that config.filesPlugin is not combined
+  files-plugin.module =
+    { config, ... }:
+    {
+      performance.combinePlugins.enable = true;
+      extraPlugins = with pkgs.vimPlugins; [
+        nvim-treesitter
+        vim-nix
+      ];
+      # Ensure that filesPlugin is added extraPlugins
+      wrapRc = true;
+      # Extra user files colliding with plugins
+      extraFiles = {
+        "ftplugin/nix.vim".text = "let b:test = 1";
+        "queries/nix/highlights.scm".text = ''
+          ;; extends
+          (comment) @comment
+        '';
+      };
+      extraConfigLuaPost = ''
+        local function get_paths(name)
+          local paths = vim.api.nvim_get_runtime_file(name, true);
+          return vim.tbl_filter(function(v)
+            -- Skip paths from neovim runtime
+            return not v:find("/nvim/runtime/")
+          end, paths)
+        end
+
+        -- Both plugin and user version are available
+        assert(#get_paths("ftplugin/nix.vim") == 2, "only one version of ftplugin/nix.vim")
+        assert(#get_paths("queries/nix/highlights.scm") == 2, "only one version of queries/nix/highlights.scm")
+
+        -- First found file is from nvim-config
+        assert(
+          get_paths("ftplugin/nix.vim")[1]:find("nvim-config", 1, true),
+          "first found ftplugin/nix.vim isn't in nvim-config runtime path"
+        )
+        assert(
+          get_paths("queries/nix/highlights.scm")[1]:find("nvim-config", 1, true),
+          "first found queries/nix/highlights.scm isn't in nvim-config runtime path"
+        )
       '';
       assertions = [
         {
