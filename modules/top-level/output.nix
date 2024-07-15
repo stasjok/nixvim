@@ -98,18 +98,26 @@ in
         in
         lib.unique (builtins.concatMap pluginWithItsDeps normalizedPlugins);
 
+      # Remove dependencies from all plugins in a list
+      removeDependecies = ps: map (p: p // { plugin = removeAttrs p.plugin [ "dependencies" ]; }) ps;
+
       # Separated start and opt plugins
       partitionedPlugins = builtins.partition (p: p.optional == true) allPlugins;
       startPlugins = partitionedPlugins.wrong;
       # Remove opt plugin dependencies since they are already available in start plugins
-      optPlugins = map (
-        p: p // { plugin = builtins.removeAttrs p.plugin [ "dependencies" ]; }
-      ) partitionedPlugins.right;
+      optPlugins = removeDependecies partitionedPlugins.right;
+
+      # Test if plugin shouldn't be included in plugin pack
+      isStandalone =
+        p:
+        builtins.elem p.plugin config.performance.combinePlugins.standalonePlugins
+        || builtins.elem (lib.getName p.plugin) config.performance.combinePlugins.standalonePlugins;
 
       # Separated standalone and combined start plugins
-      partitionedStartPlugins = builtins.partition (p: p.plugin != config.filesPlugin) startPlugins;
-      toCombinePlugins = partitionedStartPlugins.right;
-      standaloneStartPlugins = partitionedStartPlugins.wrong;
+      partitionedStartPlugins = builtins.partition isStandalone startPlugins;
+      toCombinePlugins = partitionedStartPlugins.wrong;
+      # Remove standalone plugin dependencies since they are already available in start plugins
+      standaloneStartPlugins = removeDependecies partitionedStartPlugins.right;
 
       # Combine start plugins into a single pack
       pluginPack =

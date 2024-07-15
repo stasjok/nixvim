@@ -258,24 +258,99 @@ in
           (comment) @comment
         '';
       };
-      extraConfigLuaPost = # lua
-        ''
-          local function get_paths(name)
-            local paths = vim.api.nvim_get_runtime_file(name, true);
-            return vim.tbl_filter(function(v)
-              -- Skip paths from neovim runtime
-              return not v:find("/nvim/runtime/")
-            end, paths)
-          end
+      extraConfigLuaPost = ''
+        local function get_paths(name)
+          local paths = vim.api.nvim_get_runtime_file(name, true);
+          return vim.tbl_filter(function(v)
+            -- Skip paths from neovim runtime
+            return not v:find("/nvim/runtime/")
+          end, paths)
+        end
 
-          -- Both plugin and user version are available
-          assert(#get_paths("ftplugin/nix.vim") == 2, "only one version of ftplugin/nix.vim")
-          assert(#get_paths("queries/nix/highlights.scm") == 2, "only one version of queries/nix/highlights.scm")
-        '';
+        -- Both plugin and user version are available
+        assert(#get_paths("ftplugin/nix.vim") == 2, "only one version of ftplugin/nix.vim")
+        assert(#get_paths("queries/nix/highlights.scm") == 2, "only one version of queries/nix/highlights.scm")
+
+        -- First found file is from nvim-config
+        assert(
+          get_paths("ftplugin/nix.vim")[1]:find("nvim-config", 1, true),
+          "first found ftplugin/nix.vim isn't in nvim-config runtime path"
+        )
+        assert(
+          get_paths("queries/nix/highlights.scm")[1]:find("nvim-config", 1, true),
+          "first found queries/nix/highlights.scm isn't in nvim-config runtime path"
+        )
+      '';
       assertions = [
         {
           assertion = pluginCount config.finalPackage "start" == 1;
           message = "More than one start plugin is defined in packpathDirs";
+        }
+      ];
+    };
+
+  # Test that standalonePlugins option works
+  standalone-plugins.module =
+    { config, ... }:
+    {
+      performance.combinePlugins = {
+        enable = true;
+        standalonePlugins = with pkgs.vimPlugins; [
+          # By plugin name
+          "nvim-treesitter"
+          # By package itself
+          nvim-lspconfig
+          # Its dependency, plenary-nvim, not in this list, so will be combined
+          telescope-nvim
+          # Dependency of other plugin
+          "nvim-cmp"
+        ];
+      };
+      extraPlugins = with pkgs.vimPlugins; [
+        nvim-treesitter
+        nvim-lspconfig
+        telescope-nvim
+        # Only its dependency (nvim-cmp) won't be combined, but not the plugin itself
+        cmp-dictionary
+        # More plugins
+        gitsigns-nvim
+        luasnip
+      ];
+      extraConfigLuaPost = ''
+        -- Plugins are loadable
+        require("nvim-treesitter")
+        require("lspconfig")
+        require("telescope")
+        require("plenary")
+        require("cmp_dictionary")
+        require("cmp")
+        require("gitsigns")
+        require("luasnip")
+
+        -- Verify if plugin is standalone or combined
+        local function is_standalone(name, dirname)
+          local paths = vim.api.nvim_get_runtime_file("lua/" .. name, true);
+          assert(#paths == 1, "more than one copy of " .. name .. " in runtime")
+          return paths[1]:match("^(.+)/lua/"):find(dirname or name, 1, true) ~= nil
+        end
+
+        -- Standalone plugins
+        assert(is_standalone("nvim-treesitter"), "nvim-treesitter is combined, expected standalone")
+        assert(is_standalone("lspconfig"), "nvim-lspconfig is combined, expected standalone")
+        assert(is_standalone("telescope"), "telescope-nvim is combined, expected standalone")
+        -- Add trailing slash to ensure that it doesn't match cmp_dictionary
+        assert(is_standalone("cmp/", "nvim-cmp"), "nvim-cmp is combined, expected standalone")
+        -- Combined plugins
+        assert(not is_standalone("plenary"), "plenary-nvim is standalone, expected combined")
+        assert(not is_standalone("cmp_dictionary", "cmp-dictionary"), "cmp-dictionary is standalone, expected combined")
+        assert(not is_standalone("gitsigns"), "gitsigns-nvim is standalone, expected combined")
+        assert(not is_standalone("luasnip"), "luasnip is standalone, expected combined")
+      '';
+      assertions = [
+        {
+          # plugin-pack, nvim-treesitter, nvim-lspconfig, telescope-nvim, nvim-cmp
+          assertion = pluginCount config.finalPackage "start" == 5;
+          message = "Wrong number of plugins in packpathDirs";
         }
       ];
     };
