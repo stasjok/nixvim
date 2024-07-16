@@ -30,6 +30,18 @@ in
         description = "List of plugins (names or packages) to exclude from plugin pack.";
       };
     };
+
+    byteCompileLua = {
+      enable = lib.mkEnableOption "byte compiling of lua files";
+      initLua = lib.mkEnableOption "initLua" // {
+        description = "Whether to byte compile init.lua.";
+        default = true;
+      };
+      configs = lib.mkEnableOption "configs" // {
+        description = "Whether to byte compile lua configuration files.";
+        default = true;
+      };
+    };
   };
 
   config.performance = {
