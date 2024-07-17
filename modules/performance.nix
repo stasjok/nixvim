@@ -41,6 +41,9 @@ in
         description = "Whether to byte compile lua configuration files.";
         default = true;
       };
+      plugins = lib.mkEnableOption "plugins" // {
+        description = "Whether to byte compile lua plugins.";
+      };
     };
   };
 
