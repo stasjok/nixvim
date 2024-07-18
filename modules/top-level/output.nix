@@ -289,6 +289,40 @@ in
           wrapRc = false;
         }
       );
+
+      # A script to set 'runtimepath' and 'packpath' options
+      setRtpScript =
+        let
+          # Plugin directory
+          packDir = toString (pkgs.vimUtils.packDir wrappedNeovim.packpathDirs);
+          userPaths = lib.optional (!config.wrapRc) (helpers.mkRaw "vim.fn.stdpath('config')");
+          runtimePaths =
+            userPaths
+            ++ [
+              packDir
+              (helpers.mkRaw "vim.env.VIMRUNTIME")
+            ]
+            # 'After' directories in reverse order
+            ++ map (path: helpers.mkRaw "vim.fs.joinpath(${helpers.toLuaObject path}, 'after')") (
+              lib.reverseList userPaths
+            );
+          packPaths = [
+            packDir
+            (helpers.mkRaw "vim.env.VIMRUNTIME")
+          ];
+        in
+        if config.performance.optimizeRuntimePath.enable then
+          ''
+            vim.opt.runtimepath = ${helpers.toLuaObject runtimePaths}
+            vim.opt.packpath = ${helpers.toLuaObject packPaths}
+          ''
+        else
+          lib.optionalString config.wrapRc ''
+            -- Ignore the user lua configuration
+            vim.opt.runtimepath:remove(vim.fn.stdpath('config'))              -- ~/.config/nvim
+            vim.opt.runtimepath:remove(vim.fn.stdpath('config') .. "/after")  -- ~/.config/nvim/after
+            vim.opt.runtimepath:remove(vim.fn.stdpath('data') .. "/site")     -- ~/.local/share/nvim/site
+          '';
     in
     {
       type = lib.mkForce "lua";
@@ -303,12 +337,7 @@ in
         '';
       };
 
-      extraConfigLuaPre = lib.optionalString config.wrapRc ''
-        -- Ignore the user lua configuration
-        vim.opt.runtimepath:remove(vim.fn.stdpath('config'))              -- ~/.config/nvim
-        vim.opt.runtimepath:remove(vim.fn.stdpath('config') .. "/after")  -- ~/.config/nvim/after
-        vim.opt.runtimepath:remove(vim.fn.stdpath('data') .. "/site")     -- ~/.local/share/nvim/site
-      '';
+      extraConfigLuaPre = lib.mkIf (setRtpScript != "") (lib.mkBefore setRtpScript);
 
       extraPlugins = if config.wrapRc then [ config.filesPlugin ] else [ ];
     };

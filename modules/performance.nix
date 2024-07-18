@@ -4,6 +4,12 @@ let
 in
 {
   options.performance = {
+    optimizeRuntimePath = {
+      enable = lib.mkEnableOption ''
+        runtime search path optimization. It sets `runtimepath`
+        and `packpath` options to the minimum list of essential paths'';
+    };
+
     combinePlugins = {
       enable = lib.mkEnableOption "combinePlugins" // {
         description = ''

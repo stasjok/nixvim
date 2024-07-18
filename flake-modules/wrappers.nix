@@ -22,6 +22,11 @@
                 inherit (inputs) home-manager;
                 nixvim = self;
               };
+          home-manager-optimize-runtimepath = import ../tests/modules/hm-optimize-rtp.nix {
+            inherit pkgs;
+            inherit (inputs) home-manager;
+            nixvim = self;
+          };
         }
         // pkgs.lib.optionalAttrs (!pkgs.stdenv.isDarwin) {
           nixos-module =
