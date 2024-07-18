@@ -87,8 +87,37 @@ in
         defaultPlugin // (if p ? plugin then p else { plugin = p; });
       normalizePluginList = plugins: map normalize plugins;
 
-      # Normalized plugin list
-      normalizedPlugins = normalizePluginList config.extraPlugins;
+      # Byte compiling of normalized plugin list
+      byteCompilePlugins =
+        plugins:
+        let
+          byteCompile =
+            p:
+            p.overrideAttrs (
+              prev:
+              {
+                nativeBuildInputs = prev.nativeBuildInputs or [ ] ++ [ helpers.byteCompileLuaHook ];
+              }
+              // lib.optionalAttrs (prev ? buildCommand) {
+                buildCommand = ''
+                  ${prev.buildCommand}
+                  runHook postFixup
+                '';
+              }
+              // lib.optionalAttrs (prev ? dependencies) { dependencies = map byteCompile prev.dependencies; }
+            );
+        in
+        map (p: p // { plugin = byteCompile p.plugin; }) plugins;
+
+      # Normalized and optionally byte compiled plugin list
+      normalizedPlugins =
+        let
+          normalized = normalizePluginList config.extraPlugins;
+        in
+        if config.performance.byteCompileLua.enable && config.performance.byteCompileLua.plugins then
+          byteCompilePlugins normalized
+        else
+          normalized;
 
       # Plugin list extended with dependencies
       allPlugins =
@@ -213,7 +242,17 @@ in
         '')
         + config.content;
 
-      init = helpers.writeLua "init.lua" customRC;
+      textInit = helpers.writeLua "init.lua" customRC;
+      byteCompiledInit = helpers.writeByteCompiledLua "init.lua" customRC;
+      init =
+        if
+          config.type == "lua"
+          && config.performance.byteCompileLua.enable
+          && config.performance.byteCompileLua.initLua
+        then
+          byteCompiledInit
+        else
+          textInit;
 
       extraWrapperArgs = builtins.concatStringsSep " " (
         (optional (
@@ -222,7 +261,28 @@ in
         ++ (optional config.wrapRc ''--add-flags -u --add-flags "${init}"'')
       );
 
-      wrappedNeovim = pkgs.wrapNeovimUnstable config.package (
+      package =
+        if config.performance.byteCompileLua.enable && config.performance.byteCompileLua.nvimRuntime then
+          # Using symlinkJoin to avoid rebuilding neovim
+          pkgs.symlinkJoin {
+            name = "neovim-byte-compiled-${lib.getVersion config.package}";
+            paths = [ config.package ];
+            # Required attributes from original neovim package
+            inherit (config.package) lua;
+            nativeBuildInputs = [ helpers.byteCompileLuaHook ];
+            postBuild = ''
+              # Replace Nvim's binary symlink with a regular file,
+              # or Nvim will use original runtime directory
+              rm $out/bin/nvim
+              cp ${config.package}/bin/nvim $out/bin/nvim
+
+              runHook postFixup
+            '';
+          }
+        else
+          config.package;
+
+      wrappedNeovim = pkgs.wrapNeovimUnstable package (
         neovimConfig
         // {
           wrapperArgs = lib.escapeShellArgs neovimConfig.wrapperArgs + " " + extraWrapperArgs;
@@ -239,7 +299,7 @@ in
         name = "nixvim-print-init";
         runtimeInputs = [ pkgs.bat ];
         text = ''
-          bat --language=lua "${init}"
+          bat --language=lua "${textInit}"
         '';
       };
 

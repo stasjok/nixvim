@@ -72,27 +72,36 @@ in
 
       # A directory with all the files in it
       # Implementation based on NixOS's /etc module
-      filesPlugin = pkgs.runCommandLocal "nvim-config" { } ''
-        set -euo pipefail
+      filesPlugin =
+        let
+          needByteCompiling =
+            config.performance.byteCompileLua.enable && config.performance.byteCompileLua.configs;
+        in
+        pkgs.runCommandLocal "nvim-config"
+          { nativeBuildInputs = lib.optional needByteCompiling helpers.byteCompileLuaHook; }
+          ''
+            set -euo pipefail
 
-        makeEntry() {
-          src="$1"
-          target="$2"
-          mkdir -p "$out/$(dirname "$target")"
-          cp "$src" "$out/$target"
-        }
+            makeEntry() {
+              src="$1"
+              target="$2"
+              mkdir -p "$out/$(dirname "$target")"
+              cp "$src" "$out/$target"
+            }
 
-        mkdir -p "$out"
-        ${lib.concatMapStringsSep "\n" (
-          { target, source, ... }:
-          lib.escapeShellArgs [
-            "makeEntry"
-            # Force local source paths to be added to the store
-            "${source}"
-            target
-          ]
-        ) extraFiles}
-      '';
+            mkdir -p "$out"
+            ${lib.concatMapStringsSep "\n" (
+              { target, source, ... }:
+              lib.escapeShellArgs [
+                "makeEntry"
+                # Force local source paths to be added to the store
+                "${source}"
+                target
+              ]
+            ) extraFiles}
+
+            ${lib.optionalString needByteCompiling "runHook postFixup"}
+          '';
 
       # Never combine user files with the rest of the plugins
       performance.combinePlugins.standalonePlugins = [ config.filesPlugin ];
