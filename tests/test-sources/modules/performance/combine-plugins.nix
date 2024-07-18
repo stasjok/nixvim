@@ -258,6 +258,21 @@ in
           (comment) @comment
         '';
       };
+      # Another form of user files
+      files = {
+        "ftdetect/nix.vim" = {
+          autoCmd = [
+            {
+              event = [
+                "BufRead"
+                "BufNewFile"
+              ];
+              pattern = "*.nix";
+              command = "setf nix";
+            }
+          ];
+        };
+      };
       extraConfigLuaPost = ''
         local function get_paths(name)
           local paths = vim.api.nvim_get_runtime_file(name, true);
@@ -269,12 +284,17 @@ in
 
         -- Both plugin and user version are available
         assert(#get_paths("ftplugin/nix.vim") == 2, "only one version of ftplugin/nix.vim")
+        assert(#get_paths("ftdetect/nix.vim") == 2, "only one version of ftdetect/nix.vim")
         assert(#get_paths("queries/nix/highlights.scm") == 2, "only one version of queries/nix/highlights.scm")
 
         -- First found file is from nvim-config
         assert(
           get_paths("ftplugin/nix.vim")[1]:find("nvim-config", 1, true),
           "first found ftplugin/nix.vim isn't in nvim-config runtime path"
+        )
+        assert(
+          get_paths("ftdetect/nix.vim")[1]:find("nvim-config", 1, true),
+          "first found ftdetect/nix.vim isn't in nvim-config runtime path"
         )
         assert(
           get_paths("queries/nix/highlights.scm")[1]:find("nvim-config", 1, true),
