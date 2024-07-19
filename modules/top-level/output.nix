@@ -295,7 +295,12 @@ in
         let
           # Plugin directory
           packDir = toString (pkgs.vimUtils.packDir wrappedNeovim.packpathDirs);
-          userPaths = lib.optional (!config.wrapRc) (helpers.mkRaw "vim.fn.stdpath('config')");
+          # Convert derivations and paths to strings
+          normalize = x: if helpers.nixvimTypes.isRawType x then x else toString x;
+          # User provided paths go after std config, but before plugins
+          userPaths =
+            lib.optional (!config.wrapRc) (helpers.mkRaw "vim.fn.stdpath('config')")
+            ++ (map normalize config.performance.optimizeRuntimePath.extraRuntimePaths);
           runtimePaths =
             userPaths
             ++ [
@@ -306,7 +311,8 @@ in
             ++ map (path: helpers.mkRaw "vim.fs.joinpath(${helpers.toLuaObject path}, 'after')") (
               lib.reverseList userPaths
             );
-          packPaths = [
+          # User provided paths go before plugins
+          packPaths = map normalize config.performance.optimizeRuntimePath.extraPackPaths ++ [
             packDir
             (helpers.mkRaw "vim.env.VIMRUNTIME")
           ];

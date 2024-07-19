@@ -1,4 +1,4 @@
-{ lib, ... }:
+{ lib, helpers, ... }:
 let
   inherit (lib) types;
 in
@@ -8,6 +8,18 @@ in
       enable = lib.mkEnableOption ''
         runtime search path optimization. It sets `runtimepath`
         and `packpath` options to the minimum list of essential paths'';
+      extraRuntimePaths = lib.mkOption {
+        description = "Extra paths to add to `runtimepath`.";
+        type = with helpers.nixvimTypes; listOf (maybeRaw path);
+        default = [ ];
+        example = [ (helpers.mkRaw "vim.fs.joinpath(vim.fn.stdpath('data'), 'site')") ];
+      };
+      extraPackPaths = lib.mkOption {
+        description = "Extra paths to add to `packpath`.";
+        type = with helpers.nixvimTypes; listOf (maybeRaw path);
+        default = [ ];
+        example = [ (helpers.mkRaw "vim.fs.joinpath(vim.fn.stdpath('data'), 'site')") ];
+      };
     };
 
     combinePlugins = {
