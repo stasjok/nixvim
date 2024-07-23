@@ -26,7 +26,7 @@ let
     setAttrByPath
     ;
   cfg = config.programs.nixvim;
-  helpers = import ../lib/helpers.nix { inherit pkgs lib; };
+  inherit (config.nixvim) helpers;
   extraFiles = lib.filter (file: file.enable) (lib.attrValues cfg.extraFiles);
 in
 {
@@ -43,7 +43,7 @@ in
 
   config = mkMerge [
     # Make our lib available to the host modules
-    { nixvim.helpers = lib.mkDefault helpers; }
+    { nixvim.helpers = lib.mkDefault (import ../lib/helpers.nix { inherit pkgs lib; }); }
     # Propagate extraFiles to the host modules
     (optionalAttrs (filesOpt != null) (
       mkIf (!cfg.wrapRc) (
@@ -52,7 +52,6 @@ in
             map (
               { target, source, ... }:
               let
-                needByteCompiling = cfg.performance.byteCompileLua.enable && cfg.performance.byteCompileLua.configs;
                 maybeByteCompile =
                   source:
                   let
@@ -62,7 +61,11 @@ in
                       else
                         baseNameOf source;
                   in
-                  if lib.hasSuffix ".lua" source && needByteCompiling then
+                  if
+                    lib.hasSuffix ".lua" source
+                    && cfg.performance.byteCompileLua.enable
+                    && cfg.performance.byteCompileLua.configs
+                  then
                     helpers.writeByteCompiledLua name (builtins.readFile source)
                   else
                     source;

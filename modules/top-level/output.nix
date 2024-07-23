@@ -128,13 +128,13 @@ in
         lib.unique (builtins.concatMap pluginWithItsDeps normalizedPlugins);
 
       # Remove dependencies from all plugins in a list
-      removeDependecies = ps: map (p: p // { plugin = removeAttrs p.plugin [ "dependencies" ]; }) ps;
+      removeDependencies = ps: map (p: p // { plugin = removeAttrs p.plugin [ "dependencies" ]; }) ps;
 
       # Separated start and opt plugins
-      partitionedPlugins = builtins.partition (p: p.optional == true) allPlugins;
-      startPlugins = partitionedPlugins.wrong;
+      partitionedOptStartPlugins = builtins.partition (p: p.optional) allPlugins;
+      startPlugins = partitionedOptStartPlugins.wrong;
       # Remove opt plugin dependencies since they are already available in start plugins
-      optPlugins = removeDependecies partitionedPlugins.right;
+      optPlugins = removeDependencies partitionedOptStartPlugins.right;
 
       # Test if plugin shouldn't be included in plugin pack
       isStandalone =
@@ -143,25 +143,24 @@ in
         || builtins.elem (lib.getName p.plugin) config.performance.combinePlugins.standalonePlugins;
 
       # Separated standalone and combined start plugins
-      partitionedStartPlugins = builtins.partition isStandalone startPlugins;
-      toCombinePlugins = partitionedStartPlugins.wrong;
+      partitionedStandaloneStartPlugins = builtins.partition isStandalone startPlugins;
+      toCombinePlugins = partitionedStandaloneStartPlugins.wrong;
       # Remove standalone plugin dependencies since they are already available in start plugins
-      standaloneStartPlugins = removeDependecies partitionedStartPlugins.right;
+      standaloneStartPlugins = removeDependencies partitionedStandaloneStartPlugins.right;
 
       # Combine start plugins into a single pack
       pluginPack =
         let
-          # Plugins with doc tags removed
-          overridedPlugins = map (
+          # Every plugin has its own generated help tags (doc/tags)
+          # Remove them to avoid collisions, new help tags
+          # will be generate for the entire pack later on
+          overriddenPlugins = map (
             plugin:
             plugin.plugin.overrideAttrs (prev: {
               nativeBuildInputs = lib.remove pkgs.vimUtils.vimGenDocHook prev.nativeBuildInputs or [ ];
-              configurePhase = builtins.concatStringsSep "\n" (
-                builtins.filter (s: s != ":") [
-                  prev.configurePhase or ":"
-                  "rm -vf doc/tags"
-                ]
-              );
+              configurePhase = ''
+                ${prev.configurePhase or ""}
+                rm -vf doc/tags'';
             })
           ) toCombinePlugins;
 
@@ -176,8 +175,8 @@ in
           combinedPlugin = pkgs.vimUtils.toVimPlugin (
             pkgs.buildEnv {
               name = "plugin-pack";
-              paths = overridedPlugins;
-              pathsToLink = config.performance.combinePlugins.pathsToLink;
+              paths = overriddenPlugins;
+              inherit (config.performance.combinePlugins) pathsToLink;
               # Remove empty directories and activate vimGenDocHook
               postBuild = ''
                 find $out -type d -empty -delete

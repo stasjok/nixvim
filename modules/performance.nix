@@ -4,6 +4,24 @@ let
 in
 {
   options.performance = {
+    byteCompileLua = {
+      enable = lib.mkEnableOption "byte compiling of lua files";
+      initLua = lib.mkEnableOption "initLua" // {
+        description = "Whether to byte compile init.lua.";
+        default = true;
+      };
+      configs = lib.mkEnableOption "configs" // {
+        description = "Whether to byte compile lua configuration files.";
+        default = true;
+      };
+      plugins = lib.mkEnableOption "plugins" // {
+        description = "Whether to byte compile lua plugins.";
+      };
+      nvimRuntime = lib.mkEnableOption "nvimRuntime" // {
+        description = "Whether to byte compile lua files in Nvim runtime.";
+      };
+    };
+
     combinePlugins = {
       enable = lib.mkEnableOption "combinePlugins" // {
         description = ''
@@ -28,24 +46,6 @@ in
         default = [ ];
         example = [ "nvim-treesitter" ];
         description = "List of plugins (names or packages) to exclude from plugin pack.";
-      };
-    };
-
-    byteCompileLua = {
-      enable = lib.mkEnableOption "byte compiling of lua files";
-      initLua = lib.mkEnableOption "initLua" // {
-        description = "Whether to byte compile init.lua.";
-        default = true;
-      };
-      configs = lib.mkEnableOption "configs" // {
-        description = "Whether to byte compile lua configuration files.";
-        default = true;
-      };
-      plugins = lib.mkEnableOption "plugins" // {
-        description = "Whether to byte compile lua plugins.";
-      };
-      nvimRuntime = lib.mkEnableOption "nvimRuntime" // {
-        description = "Whether to byte compile lua files in Nvim runtime.";
       };
     };
   };
