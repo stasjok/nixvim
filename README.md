@@ -133,9 +133,7 @@ system. To enable flakes, add this to `/etc/nixos/configuration.nix`
 { pkgs, lib, ... }:
 {
   nix = {
-    package = pkgs.nixFlakes;
-    extraOptions = lib.optionalString (config.nix.package == pkgs.nixFlakes)
-      "experimental-features = nix-command flakes";
+    settings.experimental-features = [ "nix-command" "flakes" ];
   };
 }
 ```
@@ -177,7 +175,7 @@ If you want to use it standalone, you can use the `makeNixvim` function:
 
 ```nix
 { pkgs, nixvim, ... }: {
-  environment.systemModules = [
+  environment.systemPackages = [
     (nixvim.legacyPackages."${pkgs.stdenv.hostPlatform.system}".makeNixvim {
       colorschemes.gruvbox.enable = true;
     })

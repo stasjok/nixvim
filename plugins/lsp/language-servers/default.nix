@@ -550,7 +550,7 @@ let
     {
       name = "tsserver";
       description = "tsserver for TypeScript";
-      package = pkgs.nodePackages.typescript-language-server;
+      package = pkgs.typescript-language-server;
     }
     {
       name = "typos-lsp";
@@ -591,7 +591,9 @@ let
           example = false;
         };
       };
-      extraConfig = cfg: { filetype.extension = mkIf cfg.autoSetFiletype { v = "vlang"; }; };
+      extraConfig = cfg: {
+        filetype.extension = mkIf (cfg.enable && cfg.autoSetFiletype) { v = "vlang"; };
+      };
     }
     {
       name = "vuels";

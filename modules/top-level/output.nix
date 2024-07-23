@@ -231,16 +231,10 @@ in
         }
       );
 
-      customRC =
-        let
-          hasContent = str: (builtins.match "[[:space:]]*" str) == null;
-        in
-        (optionalString (hasContent neovimConfig.neovimRcContent) ''
-          vim.cmd([[
-            ${neovimConfig.neovimRcContent}
-          ]])
-        '')
-        + config.content;
+      customRC = helpers.concatNonEmptyLines [
+        (helpers.wrapVimscriptForLua neovimConfig.neovimRcContent)
+        config.content
+      ];
 
       textInit = helpers.writeLua "init.lua" customRC;
       byteCompiledInit = helpers.writeByteCompiledLua "init.lua" customRC;
@@ -303,7 +297,7 @@ in
         '';
       };
 
-      extraConfigLuaPre = lib.optionalString config.wrapRc ''
+      extraConfigLuaPre = lib.mkIf config.wrapRc ''
         -- Ignore the user lua configuration
         vim.opt.runtimepath:remove(vim.fn.stdpath('config'))              -- ~/.config/nvim
         vim.opt.runtimepath:remove(vim.fn.stdpath('config') .. "/after")  -- ~/.config/nvim/after
